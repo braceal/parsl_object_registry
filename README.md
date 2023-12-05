@@ -18,7 +18,7 @@ pytest
 Register a function or class once and then get the singleton instance in future calls:
 
 ```python
-from parsl_object_registry import register, clear_torch_cuda_memory_callback
+from registry import register, clear_torch_cuda_memory_callback
 
 # Example of a function that clears the memory of a torch model
 # when a new object is requested from the registry
