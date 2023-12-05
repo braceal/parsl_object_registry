@@ -36,8 +36,7 @@ class MyExpensiveTorchClass:
         # Expensive initialization
         ...
 
-# The first call to the class will initialize the object
-# and register it in the registry
+# The first call to the class will initialize and register the object
 my_object = MyExpensiveTorchClass(*args, **kwargs)
 
 # Subsequent calls will return the same object without calling
