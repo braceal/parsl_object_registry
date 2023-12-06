@@ -39,6 +39,11 @@ def test_register():
     # Instantiate the singleton
     obj = registry.get(MyFirstClass, 1)
     obj_id = id(obj)
+    # Hold a reference to this object until the end of the test because
+    # id() is based on the memory location of the object and we don't want
+    # another object to be allocated the same memory address once this one
+    # is garbage collected.
+    _obj_id_ref = obj
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
@@ -161,6 +166,11 @@ def test_registry_class_decorator():
     # Instantiate the singleton
     obj = MyFirstClass(1)
     obj_id = id(obj)
+    # Hold a reference to this object until the end of the test because
+    # id() is based on the memory location of the object and we don't want
+    # another object to be allocated the same memory address once this one
+    # is garbage collected.
+    _obj_id_ref = obj
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
