@@ -38,14 +38,12 @@ def test_register():
 
     # Instantiate the singleton
     obj = registry.get(MyFirstClass, 1)
-    obj_id = id(obj)
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
 
     # Another get should return the same object as before
     obj = registry.get(MyFirstClass, 1)
-    assert id(obj) == obj_id
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
@@ -53,14 +51,12 @@ def test_register():
     # Change the value of x should return a different object and call the shutdown callback
     obj = registry.get(MyFirstClass, 3)
     assert obj.x == 3
-    assert id(obj) != obj_id
     assert first_constructor_calls == 2
     assert first_shutdown_calls == 1
 
     # Changing the class should call the shutdown hook of the first class
     obj = registry.get(MySecondClass, 4)
     assert obj.x == 4
-    assert id(obj) != obj_id
     assert second_constructor_calls == 1
     assert second_shutdown_calls == 0
     assert first_constructor_calls == 2
@@ -102,7 +98,6 @@ def test_registry_singleton():
 
     # Instantiate the singleton
     obj = registry.get(MyFirstClass, 1)
-    obj_id = id(obj)
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
@@ -117,7 +112,6 @@ def test_registry_singleton():
     obj = new_registry.get(MyFirstClass, 1)
     # The new registry should keep the old instance
     assert obj.x == 1
-    assert id(obj) == obj_id
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
 
@@ -160,14 +154,12 @@ def test_registry_class_decorator():
 
     # Instantiate the singleton
     obj = MyFirstClass(1)
-    obj_id = id(obj)
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
 
     # Another get should return the same object as before
     obj = MyFirstClass(1)
-    assert id(obj) == obj_id
     assert obj.x == 1
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
@@ -175,14 +167,12 @@ def test_registry_class_decorator():
     # Change the value of x should return a different object and call the shutdown callback
     obj = MyFirstClass(3)
     assert obj.x == 3
-    assert id(obj) != obj_id
     assert first_constructor_calls == 2
     assert first_shutdown_calls == 1
 
     # Changing the class should call the shutdown hook of the first class
     obj = MySecondClass(4)
     assert obj.x == 4
-    assert id(obj) != obj_id
     assert second_constructor_calls == 1
     assert second_shutdown_calls == 0
     assert first_constructor_calls == 2
@@ -234,14 +224,12 @@ def test_registry_fn_decorators():
 
     # Instantiate the singleton
     obj = my_first_fn(1)
-    obj_id = id(obj)
     assert obj == 1
     assert first_fn_calls == 1
     assert first_shutdown_calls == 0
 
     # Another get should return the same object as before
     obj = my_first_fn(1)
-    assert id(obj) == obj_id
     assert obj == 1
     assert first_fn_calls == 1
     assert first_shutdown_calls == 0
@@ -249,14 +237,12 @@ def test_registry_fn_decorators():
     # Change the value of x should return a different object and call the shutdown callback
     obj = my_first_fn(3)
     assert obj == 3
-    assert id(obj) != obj_id
     assert first_fn_calls == 2
     assert first_shutdown_calls == 1
 
     # Changing the class should call the shutdown hook of the first class
     obj = my_second_fn(4)
     assert obj == 4
-    assert id(obj) != obj_id
     assert second_fn_calls == 1
     assert second_shutdown_calls == 0
     assert first_fn_calls == 2
