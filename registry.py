@@ -15,6 +15,22 @@ T = TypeVar('T')
 P = ParamSpec('P')
 
 
+@dataclass
+class RegistryInstance(Generic[T]):
+    """Store an instance of an object and a shutdown hook."""
+
+    shutdown_callback: Callable[[T], Any]
+    obj: Optional[T] = None
+    arg_hash: int = 0
+
+    def shutdown(self) -> None:
+        """Shutdown the object."""
+        if self.obj is not None:
+            self.shutdown_callback(self.obj)
+            self.obj = None
+            self.arg_hash = 0
+
+
 class RegistrySingleton:
     """A registry for managing singleton objects.
     Only one object in the registry can be active at a time.
@@ -29,22 +45,7 @@ class RegistrySingleton:
     >>> my_object = registry.get(MyExpensiveTorchClass, *args, **kwargs)
     """
 
-    @dataclass
-    class Instance(Generic[T]):
-        """Store an instance of an object and a shutdown hook."""
-
-        shutdown_callback: Callable[[T], Any]
-        obj: Optional[T] = None
-        arg_hash: int = 0
-
-        def shutdown(self) -> None:
-            """Shutdown the object."""
-            if self.obj is not None:
-                self.shutdown_callback(self.obj)
-                self.obj = None
-                self.arg_hash = 0
-
-    _registry: Dict[str, Instance[Any]]
+    _registry: Dict[str, RegistryInstance[Any]]
     _active: str
 
     def __new__(cls):
@@ -74,7 +75,7 @@ class RegistrySingleton:
         """Register an object type with the registry."""
         name = cls_fn.__name__
         if name not in self._registry:
-            self._registry[name] = RegistrySingleton.Instance(shutdown_callback)
+            self._registry[name] = RegistryInstance(shutdown_callback)
 
     def get(
         self,
@@ -97,9 +98,9 @@ class RegistrySingleton:
         # If the object is already active, then return the previously instantiated object
         if name == self._active and key == self._registry[name].arg_hash:
             # There's an internal assertion that if the above two conditions
-            # are true, then Instance.obj is not None. Though since
+            # are true, then RegistryInstance.obj is not None. Though since
             # the self._registry dict is unaware of the concrete type of
-            # the Instance generic class, we need to help mypy
+            # the RegistryInstance generic class, we need to help mypy
             # by casting the type to T.
             return cast(T, self._registry[name].obj)
 
