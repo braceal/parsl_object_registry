@@ -4,7 +4,7 @@ import functools
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, cast, Dict, Generic, Optional, TypeVar
+from typing import Any, Callable, cast, Dict, Generic, TypeVar
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -19,8 +19,8 @@ P = ParamSpec("P")
 class RegistryInstance(Generic[T]):
     """Store an instance of an object and a shutdown hook."""
 
-    shutdown_callback: Optional[Callable[[T], Any]] = None
-    obj: Optional[T] = None
+    shutdown_callback: Callable[[T], Any] | None = None
+    obj: T | None = None
     arg_hash: int = 0
 
     def shutdown(self) -> None:
@@ -47,7 +47,7 @@ class RegistrySingleton:
     """
 
     _registry: Dict[Callable[..., Any], RegistryInstance[Any]]
-    _active: Optional[Callable[..., Any]]
+    _active: Callable[..., Any] | None
 
     def __new__(cls):
         """Create a singleton instance of the registry."""
