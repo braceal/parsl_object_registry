@@ -245,6 +245,11 @@ def test_registry_fn_decorators():
     # Instantiate the singleton
     obj = my_first_fn(1)
     obj_id = id(obj)
+    # Hold a reference to this object until the end of the test because
+    # id() is based on the memory location of the object and we don't want
+    # another object to be allocated the same memory address once this one
+    # is garbage collected.
+    _obj_id_ref = obj
     assert obj == 1
     assert first_fn_calls == 1
     assert first_shutdown_calls == 0
@@ -280,3 +285,44 @@ def test_registry_fn_decorators():
     assert second_shutdown_calls == 1
     assert first_fn_calls == 3
     assert first_shutdown_calls == 2
+
+
+def test_default_shutdown_callback():
+    from registry import register, registry
+
+    # Reset the registry to clear any previous state from other tests
+    registry.clear()
+
+    # Variables to track the number of calls to the constructor and shutdown
+    first_fn_calls = 0
+
+    @register()
+    def my_first_fn(x: int) -> int:
+        print(f"my_first_fn called with x={x}")
+        nonlocal first_fn_calls
+        first_fn_calls += 1
+        return x
+
+    # Instantiate the singleton
+    obj = my_first_fn(1)
+    obj_id = id(obj)
+    # Hold a reference to this object until the end of the test because
+    # id() is based on the memory location of the object and we don't want
+    # another object to be allocated the same memory address once this one
+    # is garbage collected.
+    _obj_id_ref = obj
+
+    assert obj == 1
+    assert first_fn_calls == 1
+
+    # Another get should return the same object as before
+    obj = my_first_fn(1)
+    assert id(obj) == obj_id
+    assert obj == 1
+    assert first_fn_calls == 1
+
+    # Change the value of x should return a different object and call the shutdown callback
+    obj = my_first_fn(3)
+    assert obj == 3
+    assert id(obj) != obj_id
+    assert first_fn_calls == 2

@@ -11,22 +11,23 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import ParamSpec
 
-T = TypeVar('T')
-P = ParamSpec('P')
+T = TypeVar("T")
+P = ParamSpec("P")
 
 
 @dataclass
 class RegistryInstance(Generic[T]):
     """Store an instance of an object and a shutdown hook."""
 
-    shutdown_callback: Callable[[T], Any]
+    shutdown_callback: Optional[Callable[[T], Any]] = None
     obj: Optional[T] = None
     arg_hash: int = 0
 
     def shutdown(self) -> None:
         """Shutdown the object."""
         if self.obj is not None:
-            self.shutdown_callback(self.obj)
+            if self.shutdown_callback is not None:
+                self.shutdown_callback(self.obj)
             self.obj = None
             self.arg_hash = 0
 
@@ -62,15 +63,15 @@ class RegistrySingleton:
 
     def clear(self) -> None:
         """Clear the registry."""
-        for obj in self._registry.values():
-            obj.shutdown_callback(obj.obj)
+        for instance in self._registry.values():
+            instance.shutdown()
         self._registry = {}
         self._active = None
 
     def register(
         self,
         cls_fn: Callable[P, T],
-        shutdown_callback: Callable[[T], T] = lambda x: x,
+        shutdown_callback: Callable[[T], Any] | None = None,
     ) -> None:
         """Register an object type with the registry."""
         if cls_fn not in self._registry:
@@ -147,9 +148,14 @@ def _register_cls_decorator(cls: Callable[P, T]) -> Callable[P, T]:
 
 
 def register(
-    shutdown_callback: Callable[[T], Any] = lambda x: x,
+    shutdown_callback: Callable[[T], Any] | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Register a function or class with the registry.
+
+    Parameters
+    ----------
+    shutdown_callback : Callable[[T], Any], optional
+        A function to call when the object is shutdown, by default None
 
     Example
     -------
