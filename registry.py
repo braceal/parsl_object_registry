@@ -1,10 +1,35 @@
+from __future__ import annotations
+
 import functools
 import inspect
+import sys
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, cast, Dict, Generic, TypeVar
 
-# Represents a function or class type
-ClassFn = Union[Callable[..., object], Type[object]]
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+T = TypeVar("T")
+P = ParamSpec("P")
+
+
+@dataclass
+class RegistryInstance(Generic[T]):
+    """Store an instance of an object and a shutdown hook."""
+
+    shutdown_callback: Callable[[T], Any] | None = None
+    obj: T | None = None
+    arg_hash: int = 0
+
+    def shutdown(self) -> None:
+        """Shutdown the object."""
+        if self.obj is not None:
+            if self.shutdown_callback is not None:
+                self.shutdown_callback(self.obj)
+            self.obj = None
+            self.arg_hash = 0
 
 
 class RegistrySingleton:
@@ -21,80 +46,76 @@ class RegistrySingleton:
     >>> my_object = registry.get(MyExpensiveTorchClass, *args, **kwargs)
     """
 
-    @dataclass
-    class Instance:
-        """Store an instance of an object and a shutdown hook."""
-
-        shutdown_callback: Callable
-        obj: Optional[object] = None
-        arg_hash: int = 0
-
-        def shutdown(self) -> None:
-            """Shutdown the object."""
-            if self.obj is not None:
-                self.shutdown_callback(self.obj)
-                self.obj = None
-                self.arg_hash = 0
-
-    _registry: Dict[str, Instance]
-    _active: str
+    _registry: Dict[Callable[..., Any], RegistryInstance[Any]]
+    _active: Callable[..., Any] | None
 
     def __new__(cls):
         """Create a singleton instance of the registry."""
         if not hasattr(cls, "_instance"):
             cls._instance = super(RegistrySingleton, cls).__new__(cls)
             cls._instance._registry = {}
-            cls._instance._active = ""
+            cls._instance._active = None
         return cls._instance
 
-    def __contains__(self, cls_fn: ClassFn) -> bool:
+    def __contains__(self, cls_fn: Callable[P, T]) -> bool:
         """Check if an object type is in the registry."""
-        return cls_fn.__name__ in self._registry
+        return cls_fn in self._registry
 
     def clear(self) -> None:
         """Clear the registry."""
-        for obj in self._registry.values():
-            obj.shutdown_callback(obj.obj)
+        for instance in self._registry.values():
+            instance.shutdown()
         self._registry = {}
-        self._active = ""
+        self._active = None
 
     def register(
-        self, cls_fn: ClassFn, shutdown_callback: Callable = lambda x: x
+        self,
+        cls_fn: Callable[P, T],
+        shutdown_callback: Callable[[T], Any] | None = None,
     ) -> None:
         """Register an object type with the registry."""
-        name = cls_fn.__name__
-        if name not in self._registry:
-            self._registry[name] = RegistrySingleton.Instance(shutdown_callback)
+        if cls_fn not in self._registry:
+            self._registry[cls_fn] = RegistryInstance(shutdown_callback)
 
-    def get(self, cls_fn: ClassFn, *args, **kwargs) -> Any:
+    def get(
+        self,
+        cls_fn: Callable[P, T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
         """Get an object from the registry."""
 
         # Get the hash of the input arguments to effectively implment an LRU cache
         # with size 1 but with the ability to handle multiple function/class types
         # while only keeping one object active at a time.
-        name = cls_fn.__name__
-        key = hash(functools._make_key((name,) + args, kwargs, typed=False))
+        key = hash(functools._make_key((cls_fn,) + args, kwargs, typed=False))
 
         # Raise an error if the object is not registered
-        if name not in self._registry:
-            raise ValueError(f"Object {name} not registered.")
+        if cls_fn not in self._registry:
+            raise ValueError(f"Object {cls_fn.__name__} not registered.")
 
         # If the object is already active, then return the previously instantiated object
-        if name == self._active and key == self._registry[name].arg_hash:
-            return self._registry[name].obj
+        if cls_fn == self._active and key == self._registry[cls_fn].arg_hash:
+            # There's an internal assertion that if the above two conditions
+            # are true, then RegistryInstance.obj is not None. Though since
+            # the self._registry dict is unaware of the concrete type of
+            # the RegistryInstance generic class, we need to help mypy
+            # by casting the type to T.
+            return cast(T, self._registry[cls_fn].obj)
 
         # Shutdown the current active object, if it exists
-        active = self._registry.get(self._active, None)
-        if active is not None:
-            active.shutdown()
+        if self._active is not None:
+            active = self._registry.get(self._active, None)
+            if active is not None:
+                active.shutdown()
 
         # Instantiate the new object
         obj = cls_fn(*args, **kwargs)
 
         # Set the new active object
-        self._active = name
-        self._registry[name].obj = obj
-        self._registry[name].arg_hash = key
+        self._active = cls_fn
+        self._registry[cls_fn].obj = obj
+        self._registry[cls_fn].arg_hash = key
 
         return obj
 
@@ -103,18 +124,18 @@ class RegistrySingleton:
 registry = RegistrySingleton()
 
 
-def _register_fn_decorator(fn):
+def _register_fn_decorator(fn: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return registry.get(fn, *args, **kwargs)
 
     return wrapper
 
 
-def _register_cls_decorator(cls):
+def _register_cls_decorator(cls: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(cls, updated=())
-    class SingletonWrapper(cls):
-        def __new__(__cls, *args, **kwargs):
+    class SingletonWrapper(cls):  # type: ignore[valid-type,misc]
+        def __new__(__cls, *args: P.args, **kwargs: P.kwargs):
             # Note: We are always calling the registry with the original class.
             # If we called it with this __cls then we would get an infinite recursion
             # loop because __cls is a subclass of cls and the registry would try to
@@ -126,8 +147,15 @@ def _register_cls_decorator(cls):
     return SingletonWrapper
 
 
-def register(shutdown_callback: Callable = lambda x: x):
+def register(
+    shutdown_callback: Callable[[T], Any] | None = None,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Register a function or class with the registry.
+
+    Parameters
+    ----------
+    shutdown_callback : Callable[[T], Any], optional
+        A function to call when the object is shutdown, by default None
 
     Example
     -------
@@ -153,7 +181,7 @@ def register(shutdown_callback: Callable = lambda x: x):
 
     # Note: If a type hint is used, it messes up the intelisense of the
     # decorated function/class. The type should be ClassFn.
-    def decorator(cls_fn):
+    def decorator(cls_fn: Callable[P, T]) -> Callable[P, T]:
         # Register the class/fn immediately when the module is imported
         registry.register(cls_fn, shutdown_callback)
 
@@ -165,7 +193,7 @@ def register(shutdown_callback: Callable = lambda x: x):
     return decorator
 
 
-def clear_torch_cuda_memory_callback(obj: object) -> None:
+def clear_torch_cuda_memory_callback(obj: Any) -> None:
     """Clear the torch cuda memory of a given object."""
     import gc
 
