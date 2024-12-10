@@ -1,5 +1,11 @@
-def test_register():
-    from registry import registry
+"""Testing module."""
+
+from __future__ import annotations
+
+
+def test_register() -> None:
+    """Test the register function."""
+    from parsl_object_registry import registry
 
     # Reset the registry to clear any previous state from other tests
     registry.clear()
@@ -8,27 +14,27 @@ def test_register():
     first_constructor_calls = first_shutdown_calls = 0
     second_constructor_calls = second_shutdown_calls = 0
 
-    def my_first_shutdown_callback(obj):
-        print(f"First shutting down {obj}")
+    def my_first_shutdown_callback(obj: int) -> None:
+        print(f'First shutting down {obj}')
         nonlocal first_shutdown_calls
         first_shutdown_calls += 1
 
-    def my_second_shutdown_callback(obj):
-        print(f"Second shutting down {obj}")
+    def my_second_shutdown_callback(obj: int) -> None:
+        print(f'Second shutting down {obj}')
         nonlocal second_shutdown_calls
         second_shutdown_calls += 1
 
     class MyFirstClass:
-        def __init__(self, x):
+        def __init__(self, x: int) -> None:
             self.x = x
-            print(f"My first class initialized with x={x}")
+            print(f'My first class initialized with x={x}')
             nonlocal first_constructor_calls
             first_constructor_calls += 1
 
     class MySecondClass:
-        def __init__(self, x):
+        def __init__(self, x: int) -> None:
             self.x = x
-            print(f"My second class initialized with x={x}")
+            print(f'My second class initialized with x={x}')
             nonlocal second_constructor_calls
             second_constructor_calls += 1
 
@@ -55,7 +61,8 @@ def test_register():
     assert first_constructor_calls == 1
     assert first_shutdown_calls == 0
 
-    # Change the value of x should return a different object and call the shutdown callback
+    # Change the value of x should return a different object and call
+    # the shutdown callback
     obj = registry.get(MyFirstClass, 3)
     assert obj.x == 3
     assert id(obj) != obj_id
@@ -81,8 +88,10 @@ def test_register():
     assert first_shutdown_calls == 2
 
 
-def test_registry_singleton():
-    from registry import RegistrySingleton, registry
+def test_registry_singleton() -> None:
+    """Test the registry singleton."""
+    from parsl_object_registry import registry
+    from parsl_object_registry import RegistrySingleton
 
     # Reset the registry to clear any previous state from other tests
     registry.clear()
@@ -91,14 +100,14 @@ def test_registry_singleton():
     first_constructor_calls = first_shutdown_calls = 0
 
     class MyFirstClass:
-        def __init__(self, x):
+        def __init__(self, x: int) -> None:
             self.x = x
-            print(f"My first class initialized with x={x}")
+            print(f'My first class initialized with x={x}')
             nonlocal first_constructor_calls
             first_constructor_calls += 1
 
-    def my_first_shutdown_callback(obj):
-        print(f"First shutting down {obj}")
+    def my_first_shutdown_callback(obj: int) -> None:
+        print(f'First shutting down {obj}')
         nonlocal first_shutdown_calls
         first_shutdown_calls += 1
 
@@ -127,8 +136,10 @@ def test_registry_singleton():
     assert first_shutdown_calls == 0
 
 
-def test_registry_class_decorator():
-    from registry import register, registry
+def test_registry_class_decorator() -> None:
+    """Test the registry class decorator."""
+    from parsl_object_registry import register
+    from parsl_object_registry import registry
 
     # Reset the registry to clear any previous state from other tests
     registry.clear()
@@ -137,29 +148,29 @@ def test_registry_class_decorator():
     first_constructor_calls = first_shutdown_calls = 0
     second_constructor_calls = second_shutdown_calls = 0
 
-    def my_first_shutdown_callback(obj):
-        print(f"First shutting down {obj}")
+    def my_first_shutdown_callback(obj: int) -> None:
+        print(f'First shutting down {obj}')
         nonlocal first_shutdown_calls
         first_shutdown_calls += 1
 
-    def my_second_shutdown_callback(obj):
-        print(f"Second shutting down {obj}")
+    def my_second_shutdown_callback(obj: int) -> None:
+        print(f'Second shutting down {obj}')
         nonlocal second_shutdown_calls
         second_shutdown_calls += 1
 
     @register(shutdown_callback=my_first_shutdown_callback)
     class MyFirstClass:
-        def __init__(self, x):
+        def __init__(self, x: int) -> None:
             self.x = x
-            print(f"My first class initialized with x={x}")
+            print(f'My first class initialized with x={x}')
             nonlocal first_constructor_calls
             first_constructor_calls += 1
 
     @register(shutdown_callback=my_second_shutdown_callback)
     class MySecondClass:
-        def __init__(self, x):
+        def __init__(self, x: int) -> None:
             self.x = x
-            print(f"My second class initialized with x={x}")
+            print(f'My second class initialized with x={x}')
             nonlocal second_constructor_calls
             second_constructor_calls += 1
 
@@ -208,8 +219,10 @@ def test_registry_class_decorator():
     assert first_shutdown_calls == 2
 
 
-def test_registry_fn_decorators():
-    from registry import register, registry
+def test_registry_fn_decorators() -> None:
+    """Test the registry function decorators."""
+    from parsl_object_registry import register
+    from parsl_object_registry import registry
 
     # Reset the registry to clear any previous state from other tests
     registry.clear()
@@ -218,26 +231,26 @@ def test_registry_fn_decorators():
     first_fn_calls = first_shutdown_calls = 0
     second_fn_calls = second_shutdown_calls = 0
 
-    def my_first_shutdown_callback(obj):
-        print(f"First shutting down {obj}")
+    def my_first_shutdown_callback(obj) -> None:
+        print(f'First shutting down {obj}')
         nonlocal first_shutdown_calls
         first_shutdown_calls += 1
 
-    def my_second_shutdown_callback(obj):
-        print(f"Second shutting down {obj}")
+    def my_second_shutdown_callback(obj) -> None:
+        print(f'Second shutting down {obj}')
         nonlocal second_shutdown_calls
         second_shutdown_calls += 1
 
     @register(shutdown_callback=my_first_shutdown_callback)
     def my_first_fn(x: int) -> int:
-        print(f"my_first_fn called with x={x}")
+        print(f'my_first_fn called with x={x}')
         nonlocal first_fn_calls
         first_fn_calls += 1
         return x
 
     @register(shutdown_callback=my_second_shutdown_callback)
     def my_second_fn(x: int) -> int:
-        print(f"my_first_fn called with x={x}")
+        print(f'my_first_fn called with x={x}')
         nonlocal second_fn_calls
         second_fn_calls += 1
         return x
@@ -287,8 +300,10 @@ def test_registry_fn_decorators():
     assert first_shutdown_calls == 2
 
 
-def test_default_shutdown_callback():
-    from registry import register, registry
+def test_default_shutdown_callback() -> None:
+    """Test the default shutdown callback."""
+    from parsl_object_registry import register
+    from parsl_object_registry import registry
 
     # Reset the registry to clear any previous state from other tests
     registry.clear()
@@ -298,7 +313,7 @@ def test_default_shutdown_callback():
 
     @register()
     def my_first_fn(x: int) -> int:
-        print(f"my_first_fn called with x={x}")
+        print(f'my_first_fn called with x={x}')
         nonlocal first_fn_calls
         first_fn_calls += 1
         return x

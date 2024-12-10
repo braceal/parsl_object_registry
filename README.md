@@ -1,24 +1,18 @@
 # parsl_object_registry
-Registry system for managing the lifetime of expensive objects across different calls to workflow functions
+Registry system for managing the lifetime of expensive objects across different calls to workflow functions.
 
 ## Installation
 
 ```console
-python -m venv env
-source env/bin/activate
-pip install -r requirements.txt
-```
-
-## Run the tests   
-```console
-pytest
+pip install git+https://github.com/braceal/parsl_object_registry.git
 ```
 
 ## Usage
 Register a function or class once and then get the singleton instance in future calls:
 
 ```python
-from registry import register, clear_torch_cuda_memory_callback
+from parsl_object_registry import register
+from parsl_object_registry import clear_torch_cuda_memory_callback
 
 # Example of a function that clears the memory of a torch model
 # when a new object is requested from the registry
@@ -56,4 +50,22 @@ a_new_object = my_expensive_torch_function(*args, **kwargs)
 # ensure that the memory of the previous object is cleared before
 # the new object is created while still allowing warm-starting of
 # the old object.
+```
+
+## Contributing
+
+For development, it is recommended to use a virtual environment. The following
+commands will create a virtual environment, install the package in editable
+mode, and install the pre-commit hooks.
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -e '.[dev,docs]'
+pre-commit install
+```
+To test the code, run the following command:
+```bash
+pre-commit run --all-files
+tox -e py312
 ```

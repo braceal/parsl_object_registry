@@ -1,18 +1,24 @@
+"""Module for managing singleton objects with a registry."""
+
 from __future__ import annotations
 
 import functools
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, cast, Dict, Generic, TypeVar
+from typing import Any
+from typing import Callable
+from typing import cast
+from typing import Generic
+from typing import TypeVar
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
     from typing_extensions import ParamSpec
 
-T = TypeVar("T")
-P = ParamSpec("P")
+T = TypeVar('T')
+P = ParamSpec('P')
 
 
 @dataclass
@@ -34,24 +40,26 @@ class RegistryInstance(Generic[T]):
 
 class RegistrySingleton:
     """A registry for managing singleton objects.
+
     Only one object in the registry can be active at a time.
 
     Example
     -------
     Register a class once and then get the singleton instance:
 
-    >>> from viral_ppi_llm.registry import registry, clear_torch_cuda_memory_callback
+    >>> from parsl_object_registry import registry
+    >>> from parsl_object_registry import clear_torch_cuda_memory_callback
 
     >>> registry.register(MyExpensiveTorchClass, clear_torch_cuda_memory_callback)
     >>> my_object = registry.get(MyExpensiveTorchClass, *args, **kwargs)
     """
 
-    _registry: Dict[Callable[..., Any], RegistryInstance[Any]]
+    _registry: dict[Callable[..., Any], RegistryInstance[Any]]
     _active: Callable[..., Any] | None
 
-    def __new__(cls):
+    def __new__(cls) -> RegistrySingleton:
         """Create a singleton instance of the registry."""
-        if not hasattr(cls, "_instance"):
+        if not hasattr(cls, '_instance'):
             cls._instance = super(RegistrySingleton, cls).__new__(cls)
             cls._instance._registry = {}
             cls._instance._active = None
@@ -84,21 +92,20 @@ class RegistrySingleton:
         **kwargs: P.kwargs,
     ) -> T:
         """Get an object from the registry."""
-
-        # Get the hash of the input arguments to effectively implment an LRU cache
-        # with size 1 but with the ability to handle multiple function/class types
-        # while only keeping one object active at a time.
+        # Get the hash of the input arguments to effectively implement an
+        # LRU cache with size 1 but with the ability to handle multiple
+        # function/class types while only keeping one object active at a time.
         key = hash(functools._make_key((cls_fn,) + args, kwargs, typed=False))
 
         # Raise an error if the object is not registered
         if cls_fn not in self._registry:
-            raise ValueError(f"Object {cls_fn.__name__} not registered.")
+            raise ValueError(f'Object {cls_fn.__name__} not registered.')
 
         # If the object is already active, then return the previously instantiated object
         if cls_fn == self._active and key == self._registry[cls_fn].arg_hash:
             # There's an internal assertion that if the above two conditions
             # are true, then RegistryInstance.obj is not None. Though since
-            # the self._registry dict is unaware of the concrete type of
+            # the self._registry d is unaware of the concrete type of
             # the RegistryInstance generic class, we need to help mypy
             # by casting the type to T.
             return cast(T, self._registry[cls_fn].obj)
@@ -135,13 +142,14 @@ def _register_fn_decorator(fn: Callable[P, T]) -> Callable[P, T]:
 def _register_cls_decorator(cls: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(cls, updated=())
     class SingletonWrapper(cls):  # type: ignore[valid-type,misc]
-        def __new__(__cls, *args: P.args, **kwargs: P.kwargs):
+        def __new__(__cls, *args: P.args, **kwargs: P.kwargs):  # type: ignore[no-untyped-def]
             # Note: We are always calling the registry with the original class.
-            # If we called it with this __cls then we would get an infinite recursion
-            # loop because __cls is a subclass of cls and the registry would try to
-            # instantiate the subclass which would call this method, and the registry
-            # again, etc. Instead, we want to instantiate the original class by calling
-            # the cls.__init__ in the registry.get method.
+            # If we called it with this __cls then we would get an infinite
+            # recursion loop because __cls is a subclass of cls and the
+            # registry would try to instantiate the subclass which would
+            # call this method, and the registry again, etc. Instead, we want
+            # to instantiate the original class by calling the cls.__init__
+            # in the registry.get method.
             return registry.get(cls, *args, **kwargs)
 
     return SingletonWrapper
@@ -179,7 +187,7 @@ def register(
     >>> my_object = MyExpensiveTorchClass(*args, **kwargs)
     """
 
-    # Note: If a type hint is used, it messes up the intelisense of the
+    # Note: If a type hint is used, it messes up the intellisense of the
     # decorated function/class. The type should be ClassFn.
     def decorator(cls_fn: Callable[P, T]) -> Callable[P, T]:
         # Register the class/fn immediately when the module is imported

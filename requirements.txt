@@ -1,5 +1,0 @@
-mypy==0.981
-black[jupyter]
-flake8
-pytest
-isort
