@@ -145,7 +145,7 @@ quote-style = "single"
 
 [tool.ruff.isort]
 force-single-line = true
-known-first-party = ["deepdrivewe", "test", "testing"]
+known-first-party = ["parsl_object_registry", "test", "testing"]
 order-by-type = false
 required-imports = ["from __future__ import annotations"]
 
